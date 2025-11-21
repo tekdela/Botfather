@@ -1,0 +1,75 @@
+name: 🌅 Nhắc nhở buổi sáng
+
+on:
+  schedule:
+    # Chạy lúc 1:00 AM UTC = 8:00 AM giờ Việt Nam
+    - cron: '0 1 * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  morning-reminder:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Cài đặt GitHub CLI
+        run: |
+          type -p gh >/dev/null || {
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          }
+      
+      - name: 📝 Tạo issue công việc hàng ngày
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DATE=$(date +'%d/%m/%Y')
+          ISSUE_TITLE="📅 Công việc ngày ${DATE}"
+          
+          # Kiểm tra xem issue hôm nay đã tồn tại chưa
+          EXISTING_ISSUE=$(gh issue list --label "daily-task" --search "in:title ${DATE}" --state open --json number --jq '.[0].number')
+          
+          if [ -n "$EXISTING_ISSUE" ]; then
+            echo "ℹ️ Issue hôm nay đã tồn tại: #${EXISTING_ISSUE}"
+            ISSUE_NUMBER=$EXISTING_ISSUE
+          else
+            # Tạo issue mới từ template
+            ISSUE_NUMBER=$(gh issue create \
+              --title "$ISSUE_TITLE" \
+              --label "daily-task" \
+              --body "$(cat .github/ISSUE_TEMPLATE/daily-task.md | sed "s/\[DATE\]/${DATE}/g")" \
+              | grep -oP '#\K[0-9]+')
+            
+            echo "✅ Đã tạo issue mới: #${ISSUE_NUMBER}"
+          fi
+          
+          echo "ISSUE_NUMBER=${ISSUE_NUMBER}" >> $GITHUB_ENV
+      
+      - name: 📨 Gửi thông báo Telegram
+        run: |
+          DATE=$(date +'%d/%m/%Y')
+          ISSUE_URL="https://github.com/${{ github.repository }}/issues/${ISSUE_NUMBER}"
+
+          MESSAGE=$(cat <<EOF
+          🌅 *Chào buổi sáng!*
+
+          📅 Ngày: ${DATE}
+          ⏰ Giờ: 8:00 AM
+
+          💼 Hôm nay bạn có công việc gì cần làm?
+
+          📝 Issue hôm nay: ${ISSUE_URL}
+
+          🎯 Hãy bắt đầu một ngày làm việc hiệu quả!
+          EOF
+          )
+
+          chmod +x scripts/send-telegram.sh
+          ./scripts/send-telegram.sh "$MESSAGE"
