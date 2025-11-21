@@ -48,13 +48,16 @@ jobs:
         run: |
           MONTH=$(date +%m)
           YEAR=$(date +%Y)
-          
+
           chmod +x scripts/generate-report.sh
-          ./scripts/generate-report.sh "$MONTH" "$YEAR" > report_output.txt
-          
-          # Lấy đường dẫn file báo cáo
-          REPORT_FILE=$(tail -1 report_output.txt)
-          
+
+          # Chạy script và lưu nội dung báo cáo
+          REPORT_CONTENT=$(./scripts/generate-report.sh "$MONTH" "$YEAR")
+
+          # Lưu nội dung báo cáo vào file tạm
+          REPORT_FILE="/tmp/monthly-report-${MONTH}-${YEAR}.md"
+          echo "$REPORT_CONTENT" > "$REPORT_FILE"
+
           if [ -f "$REPORT_FILE" ]; then
             echo "✅ Đã tạo báo cáo thành công"
             echo "REPORT_FILE=${REPORT_FILE}" >> $GITHUB_ENV

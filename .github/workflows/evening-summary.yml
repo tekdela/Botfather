@@ -30,20 +30,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          DATE=$(date +'%Y-%m-%d')
-          
+          # Lấy ngày bắt đầu và kết thúc (00:00:00 đến 23:59:59 UTC hôm nay)
+          DATE_START=$(date -u +'%Y-%m-%dT00:00:00Z')
+          DATE_END=$(date -u +'%Y-%m-%dT23:59:59Z')
+
           # Lấy danh sách issues đã đóng trong ngày hôm nay
           CLOSED_TODAY=$(gh issue list \
             --state closed \
             --label "daily-task" \
             --limit 100 \
             --json number,title,closedAt \
-            --jq "[.[] | select(.closedAt | startswith(\"${DATE}\"))]")
-          
+            --jq "[.[] | select(.closedAt >= \"${DATE_START}\" and .closedAt <= \"${DATE_END}\")]")
+
           TOTAL_CLOSED=$(echo "$CLOSED_TODAY" | jq 'length')
-          
+
           echo "TOTAL_CLOSED=${TOTAL_CLOSED}" >> $GITHUB_ENV
-          
+
           # Tạo danh sách công việc
           if [ "$TOTAL_CLOSED" -gt 0 ]; then
             TASK_LIST=$(echo "$CLOSED_TODAY" | jq -r '.[] | "• #\(.number) - \(.title)"')

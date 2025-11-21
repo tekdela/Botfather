@@ -69,10 +69,10 @@ cat >> "$REPORT_FILE" << EOF
 💪 Hãy tiếp tục phát huy trong tháng tới!
 EOF
 
-echo "✅ Đã tạo báo cáo: $REPORT_FILE"
+echo "✅ Đã tạo báo cáo: $REPORT_FILE" >&2
 
 # In nội dung báo cáo
 cat "$REPORT_FILE"
 
-# Trả về đường dẫn file
-echo "$REPORT_FILE"
+# Trả về đường dẫn file trên stderr để dễ dàng capture
+echo "$REPORT_FILE" >&2
