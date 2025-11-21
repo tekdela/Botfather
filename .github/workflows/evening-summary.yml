@@ -1,0 +1,84 @@
+name: 🌆 Tổng kết buổi tối
+
+on:
+  schedule:
+    # Chạy lúc 10:00 AM UTC = 5:00 PM giờ Việt Nam
+    - cron: '0 10 * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  evening-summary:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      contents: read
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Cài đặt GitHub CLI
+        run: |
+          type -p gh >/dev/null || {
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          }
+      
+      - name: 📊 Thu thập công việc đã hoàn thành
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          
+          # Lấy danh sách issues đã đóng trong ngày hôm nay
+          CLOSED_TODAY=$(gh issue list \
+            --state closed \
+            --label "daily-task" \
+            --limit 100 \
+            --json number,title,closedAt \
+            --jq "[.[] | select(.closedAt | startswith(\"${DATE}\"))]")
+          
+          TOTAL_CLOSED=$(echo "$CLOSED_TODAY" | jq 'length')
+          
+          echo "TOTAL_CLOSED=${TOTAL_CLOSED}" >> $GITHUB_ENV
+          
+          # Tạo danh sách công việc
+          if [ "$TOTAL_CLOSED" -gt 0 ]; then
+            TASK_LIST=$(echo "$CLOSED_TODAY" | jq -r '.[] | "• #\(.number) - \(.title)"')
+            echo "TASK_LIST<<EOF" >> $GITHUB_ENV
+            echo "$TASK_LIST" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "TASK_LIST=" >> $GITHUB_ENV
+          fi
+      
+      - name: 📨 Gửi tổng kết qua Telegram
+        run: |
+          DATE=$(date +'%d/%m/%Y')
+          
+          if [ "$TOTAL_CLOSED" -gt 0 ]; then
+            MESSAGE="🌆 *Tổng kết buổi tối!*
+
+📅 Ngày: ${DATE}
+⏰ Giờ: 5:00 PM
+
+✅ *Bạn đã hoàn thành ${TOTAL_CLOSED} công việc hôm nay:*
+
+${TASK_LIST}
+
+🎉 Chúc mừng! Hãy nghỉ ngơi và thư giãn!"
+          else
+            MESSAGE="🌆 *Tổng kết buổi tối!*
+
+📅 Ngày: ${DATE}
+⏰ Giờ: 5:00 PM
+
+ℹ️ Bạn chưa hoàn thành công việc nào hôm nay.
+
+💪 Ngày mai hãy cố gắng hơn nhé!"
+          fi
+          
+          chmod +x scripts/send-telegram.sh
+          ./scripts/send-telegram.sh "$MESSAGE"

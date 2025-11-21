@@ -1,0 +1,79 @@
+name: 📊 Báo cáo cuối tháng
+
+on:
+  schedule:
+    # Chạy vào 23:00 UTC ngày cuối cùng của mỗi tháng
+    - cron: '0 23 28-31 * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  monthly-report:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      contents: read
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Cài đặt GitHub CLI
+        run: |
+          type -p gh >/dev/null || {
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh -y
+          }
+      
+      - name: 📅 Kiểm tra xem có phải ngày cuối tháng
+        id: check-date
+        run: |
+          CURRENT_DAY=$(date +%d)
+          NEXT_DAY=$(date -d "+1 day" +%d)
+          
+          # Nếu ngày mai là ngày 1, thì hôm nay là ngày cuối tháng
+          if [ "$NEXT_DAY" == "01" ]; then
+            echo "IS_LAST_DAY=true" >> $GITHUB_OUTPUT
+            echo "✅ Hôm nay là ngày cuối tháng"
+          else
+            echo "IS_LAST_DAY=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Hôm nay không phải ngày cuối tháng, bỏ qua"
+          fi
+      
+      - name: 📊 Tạo báo cáo tháng
+        if: steps.check-date.outputs.IS_LAST_DAY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MONTH=$(date +%m)
+          YEAR=$(date +%Y)
+          
+          chmod +x scripts/generate-report.sh
+          ./scripts/generate-report.sh "$MONTH" "$YEAR" > report_output.txt
+          
+          # Lấy đường dẫn file báo cáo
+          REPORT_FILE=$(tail -1 report_output.txt)
+          
+          if [ -f "$REPORT_FILE" ]; then
+            echo "✅ Đã tạo báo cáo thành công"
+            echo "REPORT_FILE=${REPORT_FILE}" >> $GITHUB_ENV
+          else
+            echo "❌ Không thể tạo báo cáo"
+            exit 1
+          fi
+      
+      - name: 📨 Gửi báo cáo qua Telegram
+        if: steps.check-date.outputs.IS_LAST_DAY == 'true'
+        run: |
+          if [ -f "$REPORT_FILE" ]; then
+            MESSAGE=$(cat "$REPORT_FILE")
+            
+            chmod +x scripts/send-telegram.sh
+            ./scripts/send-telegram.sh "$MESSAGE"
+            
+            echo "✅ Đã gửi báo cáo cuối tháng qua Telegram"
+          else
+            echo "❌ Không tìm thấy file báo cáo"
+            exit 1
+          fi
