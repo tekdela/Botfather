@@ -56,17 +56,20 @@ jobs:
         run: |
           DATE=$(date +'%d/%m/%Y')
           ISSUE_URL="https://github.com/${{ github.repository }}/issues/${ISSUE_NUMBER}"
-          
-          MESSAGE="🌅 *Chào buổi sáng!*
 
-📅 Ngày: ${DATE}
-⏰ Giờ: 8:00 AM
+          MESSAGE=$(cat <<EOF
+          🌅 *Chào buổi sáng!*
 
-💼 Hôm nay bạn có công việc gì cần làm?
+          📅 Ngày: ${DATE}
+          ⏰ Giờ: 8:00 AM
 
-📝 Issue hôm nay: ${ISSUE_URL}
+          💼 Hôm nay bạn có công việc gì cần làm?
 
-🎯 Hãy bắt đầu một ngày làm việc hiệu quả!"
-          
+          📝 Issue hôm nay: ${ISSUE_URL}
+
+          🎯 Hãy bắt đầu một ngày làm việc hiệu quả!
+          EOF
+          )
+
           chmod +x scripts/send-telegram.sh
           ./scripts/send-telegram.sh "$MESSAGE"

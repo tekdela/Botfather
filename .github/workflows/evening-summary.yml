@@ -57,28 +57,34 @@ jobs:
       - name: 📨 Gửi tổng kết qua Telegram
         run: |
           DATE=$(date +'%d/%m/%Y')
-          
+
           if [ "$TOTAL_CLOSED" -gt 0 ]; then
-            MESSAGE="🌆 *Tổng kết buổi tối!*
+            MESSAGE=$(cat <<EOF
+          🌆 *Tổng kết buổi tối!*
 
-📅 Ngày: ${DATE}
-⏰ Giờ: 5:00 PM
+          📅 Ngày: ${DATE}
+          ⏰ Giờ: 5:00 PM
 
-✅ *Bạn đã hoàn thành ${TOTAL_CLOSED} công việc hôm nay:*
+          ✅ *Bạn đã hoàn thành ${TOTAL_CLOSED} công việc hôm nay:*
 
-${TASK_LIST}
+          ${TASK_LIST}
 
-🎉 Chúc mừng! Hãy nghỉ ngơi và thư giãn!"
+          🎉 Chúc mừng! Hãy nghỉ ngơi và thư giãn!
+          EOF
+            )
           else
-            MESSAGE="🌆 *Tổng kết buổi tối!*
+            MESSAGE=$(cat <<EOF
+          🌆 *Tổng kết buổi tối!*
 
-📅 Ngày: ${DATE}
-⏰ Giờ: 5:00 PM
+          📅 Ngày: ${DATE}
+          ⏰ Giờ: 5:00 PM
 
-ℹ️ Bạn chưa hoàn thành công việc nào hôm nay.
+          ℹ️ Bạn chưa hoàn thành công việc nào hôm nay.
 
-💪 Ngày mai hãy cố gắng hơn nhé!"
+          💪 Ngày mai hãy cố gắng hơn nhé!
+          EOF
+            )
           fi
-          
+
           chmod +x scripts/send-telegram.sh
           ./scripts/send-telegram.sh "$MESSAGE"
